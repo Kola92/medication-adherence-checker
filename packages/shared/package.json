@@ -1,19 +1,21 @@
 {
   "name": "shared",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
+    "build": "tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
-  "devDependencies": {
-    "@types/node": "^26.1.1",
-    "typescript": "^7.0.2"
-  },
   "dependencies": {
-    "bullmq": "^5.80.9"
+    "bullmq": "^5.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
   }
 }
