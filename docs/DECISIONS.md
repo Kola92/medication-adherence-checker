@@ -20,3 +20,13 @@ require/prefer (pg-connection-string's current aliasing) will silently
 adopt weaker guarantees in pg v9 / pg-connection-string v3 per the
 library's own deprecation warning — pin explicitly, don't rely on the
 alias.
+
+## Note: redundant index on users.email
+
+The `UNIQUE` constraint on `users.email` already creates a backing index
+automatically in Postgres. The migration also explicitly creates
+`users_email_index`, which is redundant — harmless, but not necessary.
+Left in place rather than migrated away, since a migration whose sole
+purpose is removing a no-op index isn't worth the history noise. Future
+migrations should rely on UNIQUE's implicit index and skip the explicit
+createIndex call for uniqueness cases.
