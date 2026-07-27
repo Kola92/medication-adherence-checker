@@ -1,25 +1,25 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import dotenv from 'dotenv';
-
-dotenv.config({ quiet: true });
+import { config } from './config';
+import { authRoutes } from './routes/auth';
 
 const app = Fastify({
   logger: true
 });
 
 app.register(cors, {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000'
+  origin: config.corsOrigin
 });
 
 app.get('/health', async () => {
   return { status: 'ok', timestamp: new Date().toISOString() };
 });
 
+app.register(authRoutes, { prefix: '/api/v1' });
+
 const start = async () => {
   try {
-    const port = Number(process.env.PORT) || 4000;
-    await app.listen({ port, host: '0.0.0.0' });
+    await app.listen({ port: config.port, host: '0.0.0.0' });
   } catch (err) {
     app.log.error(err);
     process.exit(1);
