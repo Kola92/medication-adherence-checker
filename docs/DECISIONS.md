@@ -53,3 +53,31 @@ If this becomes a real UX problem later, the fix is deploying the API
 closer to Neon's region (Render supports region selection) rather than
 further query optimization — the bottleneck is network distance, not
 query design.
+
+## Interaction data model: text-scan + curated pairs, not full pairwise matrix
+
+**What problem does this solve?**
+openFDA (and every free drug data API) provides per-drug free-text
+interaction warnings, not structured pairwise interaction pairs with
+severity ratings. A full pairwise matrix (2,415 possible pairs across
+70 drugs) authoritatively graded for severity does not exist at $0 —
+that data is what DrugBank/Lexicomp charge for. Claiming otherwise
+would mean fabricating clinical severity ratings, which is a real
+liability for a health app, not a portfolio shortcut worth taking.
+
+**What was traded away?**
+Two-tier system instead of one clean table: (1) medications.interaction_notes
+holds raw FDA label text per drug, checked at request time via text-scan
+— broad coverage, no severity grading, full traceability to source.
+(2) interactions table holds ~15-20 hand-curated, well-documented pairs
+(warfarin+NSAIDs, statins+grapefruit family, MAOIs+SSRIs, etc.) with real
+severity + citations — narrow coverage, high confidence, showcase-quality.
+Neither tier alone is sufficient; together they're honest about what's
+verified vs. what's a broad safety-net scan.
+
+**What breaks if you change it?**
+Populating interactions.severity for all 2,415 possible pairs without
+per-pair verification reintroduces the exact fabrication risk this
+design avoids. If a future paid data source (DrugBank API) is added,
+is_curated distinguishes provenance rather than silently mixing verified
+and unverified severity ratings in the same table.
