@@ -81,3 +81,38 @@ per-pair verification reintroduces the exact fabrication risk this
 design avoids. If a future paid data source (DrugBank API) is added,
 is_curated distinguishes provenance rather than silently mixing verified
 and unverified severity ratings in the same table.
+
+## openFDA seed results: gliclazide gap + 16 drugs with no interaction_notes
+
+**What problem does this solve / what happened?**
+91/92 drugs in the seed list succeeded against openFDA. Two findings
+worth documenting rather than treating as silent gaps:
+
+1. **Gliclazide** is not FDA-approved in the United States and has no
+   openFDA label record — this is a real limitation of relying on a
+   US-only regulatory source for a global-scope app. It was manually
+   added with interaction_notes sourced from the UK's Electronic
+   Medicines Compendium (EMC) instead, with source_url explicitly
+   noting this entry is manually curated, not an automated openFDA pull.
+
+2. **16 drugs** (mostly OTC/older formulations — ibuprofen, aspirin,
+   acetaminophen, diphenhydramine, loratadine, cetirizine, and others)
+   returned a successful openFDA match but with no drug_interactions
+   field populated in their label. This is not a script bug — some FDA
+   labels genuinely don't populate this field, with interaction info
+   sometimes living elsewhere in the label (warnings/precautions) or
+   simply not required at the drug's approval vintage.
+
+**What was traded away?**
+Coverage completeness for source purity. Rather than scraping warnings/
+precautions text as a fallback (noisier, less reliably interaction-specific,
+harder to defend as "this is interaction data"), these 16 drugs simply
+have no automated interaction_notes and rely entirely on the curated
+interactions table (Option B) for any interaction coverage.
+
+**What breaks if you change it?**
+This is precisely why several curated pairs (ibuprofen+warfarin,
+NSAIDs+lithium, etc.) are non-negotiable inclusions in the curated
+interactions table — the automated text-scan tier is silent for these
+drugs, so the safety-net value of the app for common OTC drugs depends
+entirely on the curated tier, not the openFDA tier.
