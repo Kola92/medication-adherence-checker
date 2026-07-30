@@ -17,6 +17,6 @@ export const config = {
   databaseUrl: requireEnv('DATABASE_URL'),
   jwtAccessSecret: requireEnv('JWT_ACCESS_SECRET'),
   jwtRefreshSecret: requireEnv('JWT_REFRESH_SECRET'),
-  jwtAccessExpiresIn: '15m',
+  jwtAccessExpiresIn: '15m' as const,
   jwtRefreshExpiresInDays: 7
 };
