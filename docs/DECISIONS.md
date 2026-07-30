@@ -116,3 +116,58 @@ NSAIDs+lithium, etc.) are non-negotiable inclusions in the curated
 interactions table — the automated text-scan tier is silent for these
 drugs, so the safety-net value of the app for common OTC drugs depends
 entirely on the curated tier, not the openFDA tier.
+
+## Decision: Distinguish reassuring vs. warning matches in text-scan tier
+
+**Date:** 2026-07-29
+**Component:** `apps/api/src/services/interactions.ts`
+
+### What problem does this solve?
+The tier-2 text-scan matches a target drug's name inside another drug's raw
+`interaction_notes` and surfaces an excerpt as a potential interaction. But FDA
+label language sometimes uses that exact pattern to say the opposite — e.g.
+lisinopril's label states digoxin can be co-administered "without evidence of
+clinically significant adverse interactions." A naive substring match
+surfaced this as if it were a risk warning, identical in shape to a genuine
+one. In a medication-safety tool, a false positive isn't a cosmetic bug —
+it's the tool crying wolf, which trains users to distrust or ignore real
+warnings. This needed fixing before the tier could be trusted at all.
+
+### What was traded away?
+Precision for recall, in a bounded, explicit way. `NEGATIVE_PATTERNS` is a
+keyword list (phrases like "without evidence of clinically significant,"
+"no dose adjustment necessary") — not NLP, not sentiment analysis, not an
+LLM call. It will not catch every negation phrasing an FDA label could use;
+it only catches phrasings we've actually seen in the 92-drug corpus. That's
+a deliberate scope limit, not an oversight — building a general negation
+classifier is out of proportion to a $0-budget, 92-drug demo, and a keyword
+filter is auditable in a way a black-box classifier isn't (relevant for a
+health-adjacent tool where "why did it say this" needs a real answer).
+
+### What breaks if you change it?
+- If `NEGATIVE_PATTERNS` is removed: tier-2 reverts to conflating "no
+  interaction" language with "warning" language — the original bug.
+- If the corpus grows past the current 92 drugs: new negation phrasings
+  will slip through undetected until manually found — this filter doesn't
+  generalize, it's reactive to observed cases. Any future drug-list
+  expansion should include a manual review pass over unusually-worded
+  negative results.
+- If `tier: "text-scan-reassuring"` and `tier: "text-scan-warning"` are
+  collapsed back into one `tier: "text-scan"` value on the API response:
+  the frontend (not yet built) loses the ability to visually distinguish
+  the two, and the original ambiguity returns for the end user, not just
+  internally.
+
+### Verification
+This issue was not caught during design or code review — it surfaced during
+manual live testing against real openFDA data (lisinopril+digoxin), when the
+returned excerpt read as a reassurance rather than a warning despite matching
+the same text-scan logic as genuine risk pairs. Caught by inspecting actual
+API output, not by anticipating the failure mode in advance.
+
+Three cases checked against live data:
+- warfarin + ibuprofen → curated tier, unaffected by this change (control)
+- lisinopril + digoxin → correctly reclassified `text-scan-reassuring`
+- phenytoin + digoxin → correctly remained `text-scan-warning`
+
+**Related commit:** `045214c`
