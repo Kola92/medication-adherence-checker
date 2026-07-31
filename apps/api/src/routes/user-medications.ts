@@ -41,7 +41,7 @@ const JOIN_SELECT = `
     um.dosage_unit AS "dosageUnit",
     um.frequency,
     um.reminder_times AS "reminderTimes",
-    um.started_at AS "startedAt",
+    um.started_at::text AS "startedAt",
     um.created_at AS "createdAt"
   FROM user_medications um
   JOIN medications m ON m.id = um.medication_id
