@@ -6,6 +6,7 @@ import { authRoutes } from './routes/auth';
 import { medicationRoutes } from './routes/medications';
 import { interactionRoutes } from './routes/interactions';
 import { userMedicationRoutes } from './routes/user-medications';
+import { doseLogRoutes } from './routes/dose-logs';
 
 const app = Fastify({
   logger: true
@@ -26,6 +27,7 @@ const start = async () => {
   await app.register(medicationRoutes, { prefix: '/api/v1' });
   await app.register(interactionRoutes, { prefix: '/api/v1' });
   await app.register(userMedicationRoutes, { prefix: '/api/v1' });
+  await app.register(doseLogRoutes, { prefix: '/api/v1' });
 
   try {
     await app.listen({ port: config.port, host: '0.0.0.0' });
