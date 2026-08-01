@@ -171,3 +171,52 @@ Three cases checked against live data:
 - phenytoin + digoxin → correctly remained `text-scan-warning`
 
 **Related commit:** `045214c`
+
+## Decision: Off-by-one in adherence summary date range
+
+**Date:** 2026-08-01
+**Component:** `apps/api/src/routes/adherence.ts`
+
+### What problem does this solve?
+`GET /adherence/summary?days=N` is meant to compute adherence over the last
+N days (excluding today, since a slot that hasn't occurred yet shouldn't
+count against the user). The initial implementation computed the range
+start as `CURRENT_DATE - (N - 1)`, which combined with the "end at
+yesterday" boundary produced a range spanning only N-1 days, not N. A
+request for `days=7` returned 6 days of data. This was caught by seeding
+a hand-calculable dataset (known total slots, known taken count, known
+expected percentage) and comparing the endpoint's output against that
+independently-computed answer, rather than just checking for a 200 and a
+plausible-looking number.
+
+### What was traded away?
+Nothing — this was a straight bug fix, not a design tradeoff. The fix
+removes the erroneous `- 1` so the range start is `CURRENT_DATE - N`,
+giving exactly N days ending yesterday.
+
+### What breaks if you change it?
+If the `- 1` is reintroduced (e.g. during a future refactor of this query),
+every adherence percentage silently understates the requested window by
+one day, with no error or obviously wrong output - the bug only surfaces
+by comparing against a hand-computed expected value, not from casual
+testing. Any future changes to this query should be re-verified against a
+seeded dataset with a known answer, not just spot-checked for
+plausibility.
+
+### Verification
+Seeded 6 days of dose_logs for a test user_medications row (started_at =
+7 days ago), with a deliberate gap on one day (no logs at all, which
+should count as missed slots per the confirmed "ungated slots count as
+missed" adherence design) and a mix of taken/missed/skipped statuses on
+the other days. Hand-calculated expected result: 12 total slots, 8 taken,
+66.7%.
+
+- Before fix: `days=7` returned totalSlots=12 (should be 14) - silently
+  dropped the started_at day from the range.
+- After fix: `days=7` returned totalSlots=14, takenSlots=8, 57.1% -
+  correctly includes the started_at day, which had no logs and
+  therefore added 2 more missed slots to both total and denominator.
+- `days=3` cross-checked by hand against the actual seeded rows for
+  07-29 through 07-31: 6 slots, 5 taken, 83.3% - matched exactly.
+- Confirmed the fix was tested against a freshly restarted server
+  process (new pid), not a stale process from before the sed edit.
