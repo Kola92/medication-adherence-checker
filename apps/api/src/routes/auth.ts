@@ -14,7 +14,8 @@ const emailPasswordNameSchema = {
     properties: {
       email: { type: 'string', format: 'email' },
       password: { type: 'string', minLength: 8 },
-      name: { type: 'string', minLength: 1, maxLength: 255 }
+      name: { type: 'string', minLength: 1, maxLength: 255 },
+      timezone: { type: 'string', minLength: 1, maxLength: 50 }
     }
   }
 };
@@ -42,10 +43,15 @@ const refreshTokenSchema = {
 
 export async function authRoutes(app: FastifyInstance) {
   app.post('/auth/register', { schema: emailPasswordNameSchema }, async (request, reply) => {
-    const { email, password, name } = request.body as { email: string; password: string; name: string };
+    const { email, password, name, timezone } = request.body as {
+      email: string;
+      password: string;
+      name: string;
+      timezone?: string;
+    };
 
     try {
-      const result = await registerUser(email, password, name);
+      const result = await registerUser(email, password, name, timezone);
       return reply.status(201).send(result);
     } catch (err) {
       if (err instanceof AuthError) {

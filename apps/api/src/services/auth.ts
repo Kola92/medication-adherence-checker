@@ -11,9 +11,22 @@ export class AuthError extends Error {
 }
 
 interface AuthResult {
-  user: { id: string; email: string; name: string };
+  user: { id: string; email: string; name: string; timezone: string };
   accessToken: string;
   refreshToken: string;
+}
+
+const VALID_TIMEZONES = new Set(Intl.supportedValuesOf('timeZone'));
+const DEFAULT_TIMEZONE = 'Africa/Lagos';
+
+function resolveTimezone(timezone?: string): string {
+  if (timezone === undefined) {
+    return DEFAULT_TIMEZONE;
+  }
+  if (VALID_TIMEZONES.has(timezone)) {
+    return timezone;
+  }
+  throw new AuthError(`Invalid timezone: ${timezone}`, 400);
 }
 
 async function issueTokens(userId: string, email: string): Promise<{ accessToken: string; refreshToken: string }> {
@@ -32,19 +45,25 @@ async function issueTokens(userId: string, email: string): Promise<{ accessToken
   return { accessToken, refreshToken };
 }
 
-export async function registerUser(email: string, password: string, name: string): Promise<AuthResult> {
+export async function registerUser(
+  email: string,
+  password: string,
+  name: string,
+  timezone?: string
+): Promise<AuthResult> {
   if (password.length < 8) {
     throw new AuthError('Password must be at least 8 characters', 400);
   }
 
+  const resolvedTimezone = resolveTimezone(timezone);
   const passwordHash = await hashPassword(password);
 
   const result = await pool.query(
-    `INSERT INTO users (email, password_hash, name)
-     VALUES ($1, $2, $3)
+    `INSERT INTO users (email, password_hash, name, timezone)
+     VALUES ($1, $2, $3, $4)
      ON CONFLICT (email) DO NOTHING
-     RETURNING id, email, name`,
-    [email, passwordHash, name]
+     RETURNING id, email, name, timezone`,
+    [email, passwordHash, name, resolvedTimezone]
   );
 
   if (result.rows.length === 0) {
@@ -59,7 +78,7 @@ export async function registerUser(email: string, password: string, name: string
 
 export async function loginUser(email: string, password: string): Promise<AuthResult> {
   const result = await pool.query(
-    'SELECT id, email, name, password_hash FROM users WHERE email = $1',
+    'SELECT id, email, name, password_hash, timezone FROM users WHERE email = $1',
     [email]
   );
 
@@ -77,7 +96,7 @@ export async function loginUser(email: string, password: string): Promise<AuthRe
   const tokens = await issueTokens(user.id, user.email);
 
   return {
-    user: { id: user.id, email: user.email, name: user.name },
+    user: { id: user.id, email: user.email, name: user.name, timezone: user.timezone },
     ...tokens
   };
 }
