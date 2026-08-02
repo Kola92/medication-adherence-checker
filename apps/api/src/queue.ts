@@ -62,7 +62,7 @@ export async function scheduleReminderJobs(params: ScheduleParams): Promise<numb
         continue;
       }
 
-      const jobId = `${userMedicationId}:${scheduledDate}:${scheduledTime}`;
+      const jobId = `${userMedicationId}_${scheduledDate}_${scheduledTime.replace(':', '-')}`;
 
       jobs.push({
         name: REMINDER_QUEUE_NAME,

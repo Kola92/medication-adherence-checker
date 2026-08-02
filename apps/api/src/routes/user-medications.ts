@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { pool } from '../db';
+import { scheduleReminderJobs } from '../queue';
 
 const createSchema = {
   body: {
@@ -62,11 +63,15 @@ export async function userMedicationRoutes(app: FastifyInstance) {
           startedAt?: string;
         };
       const userId = request.user!.userId;
+      const userEmail = request.user!.email;
 
       const medExists = await pool.query('SELECT id FROM medications WHERE id = $1', [medicationId]);
       if (medExists.rows.length === 0) {
         return reply.status(400).send({ error: 'medicationId does not reference an existing medication' });
       }
+
+      const userResult = await pool.query('SELECT timezone FROM users WHERE id = $1', [userId]);
+      const userTimezone = userResult.rows[0].timezone;
 
       const result = await pool.query(
         `INSERT INTO user_medications
@@ -77,7 +82,20 @@ export async function userMedicationRoutes(app: FastifyInstance) {
       );
 
       const created = await pool.query(`${JOIN_SELECT} WHERE um.id = $1`, [result.rows[0].id]);
-      return reply.status(201).send(created.rows[0]);
+      const createdRow = created.rows[0];
+
+      const jobsScheduled = await scheduleReminderJobs({
+        userMedicationId: createdRow.id,
+        userId,
+        userEmail,
+        userTimezone,
+        medicationName: createdRow.medicationName,
+        dosageAmount: createdRow.dosageAmount,
+        dosageUnit: createdRow.dosageUnit,
+        reminderTimes: createdRow.reminderTimes
+      });
+
+      return reply.status(201).send({ ...createdRow, jobsScheduled });
     }
   );
 
