@@ -18,5 +18,6 @@ export const config = {
   jwtAccessSecret: requireEnv('JWT_ACCESS_SECRET'),
   jwtRefreshSecret: requireEnv('JWT_REFRESH_SECRET'),
   jwtAccessExpiresIn: '15m' as const,
-  jwtRefreshExpiresInDays: 7
+  jwtRefreshExpiresInDays: 7,
+  redisUrl: requireEnv('REDIS_URL')
 };
