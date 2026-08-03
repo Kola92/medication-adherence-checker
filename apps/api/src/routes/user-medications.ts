@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { pool } from '../db';
-import { scheduleReminderJobs } from '../queue';
+import { scheduleReminderJobs, cancelReminderJobs } from '../queue';
 
 const createSchema = {
   body: {
@@ -146,6 +146,14 @@ export async function userMedicationRoutes(app: FastifyInstance) {
       if (result.rows.length === 0) {
         return reply.status(404).send({ error: 'Not found' });
       }
+
+      try {
+        const jobsCancelled = await cancelReminderJobs(id);
+        request.log.info(`Cancelled ${jobsCancelled} queued reminder job(s) for user_medications ${id}`);
+      } catch (err) {
+        request.log.error(err, `Failed to cancel queued reminder jobs for user_medications ${id} - DB row still deleted, jobs may remain until they naturally fire and are skipped by the worker's existence check`);
+      }
+
       return reply.status(204).send();
     }
   );

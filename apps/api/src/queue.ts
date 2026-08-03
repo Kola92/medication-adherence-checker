@@ -84,3 +84,16 @@ export async function scheduleReminderJobs(params: ScheduleParams): Promise<numb
   await reminderQueue.addBulk(jobs);
   return jobs.length;
 }
+
+export async function cancelReminderJobs(userMedicationId: string): Promise<number> {
+  const delayedJobs = await reminderQueue.getJobs(['delayed']);
+  const matchingJobs = delayedJobs.filter((job) => job.id?.startsWith(`${userMedicationId}_`));
+
+  let removed = 0;
+  for (const job of matchingJobs) {
+    await job.remove();
+    removed++;
+  }
+
+  return removed;
+}
