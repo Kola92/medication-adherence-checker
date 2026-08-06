@@ -12,10 +12,13 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "bullmq": "^5.0.0"
+    "bullmq": "^5.0.0",
+    "date-fns": "^4.4.0",
+    "date-fns-tz": "^3.2.0",
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "@types/node": "^20.0.0"
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
   }
 }

@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import { pool } from '../db';
-import { scheduleReminderJobs, cancelReminderJobs } from '../queue';
+import { reminderQueue } from '../queue';
+import { scheduleReminderJobs, cancelReminderJobs } from 'shared';
 
 const createSchema = {
   body: {
@@ -84,7 +85,7 @@ export async function userMedicationRoutes(app: FastifyInstance) {
       const created = await pool.query(`${JOIN_SELECT} WHERE um.id = $1`, [result.rows[0].id]);
       const createdRow = created.rows[0];
 
-      const jobsScheduled = await scheduleReminderJobs({
+      const jobsScheduled = await scheduleReminderJobs(reminderQueue, {
         userMedicationId: createdRow.id,
         userId,
         userEmail,
@@ -148,7 +149,7 @@ export async function userMedicationRoutes(app: FastifyInstance) {
       }
 
       try {
-        const jobsCancelled = await cancelReminderJobs(id);
+        const jobsCancelled = await cancelReminderJobs(reminderQueue, id);
         request.log.info(`Cancelled ${jobsCancelled} queued reminder job(s) for user_medications ${id}`);
       } catch (err) {
         request.log.error(err, `Failed to cancel queued reminder jobs for user_medications ${id} - DB row still deleted, jobs may remain until they naturally fire and are skipped by the worker's existence check`);
