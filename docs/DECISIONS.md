@@ -220,3 +220,97 @@ the other days. Hand-calculated expected result: 12 total slots, 8 taken,
   07-29 through 07-31: 6 slots, 5 taken, 83.3% - matched exactly.
 - Confirmed the fix was tested against a freshly restarted server
   process (new pid), not a stale process from before the sed edit.
+
+## Reminder Top-Up Job: Rolling Re-Schedule + Single-Process Worker Wiring
+
+### What problem does this solve?
+The reminder producer schedules a rolling 14-day window of BullMQ delayed
+jobs at creation time. Without a top-up mechanism, that window is static
+- users who keep a medication active past 14 days would simply stop
+getting reminders once the originally-scheduled jobs ran out, with no
+error or signal that anything was wrong. `runTopup()` re-calls
+`scheduleReminderJobs()` for every `user_medications` row on a daily
+schedule, relying on BullMQ's confirmed `jobId` dedup (see the `addBulk`
+verification below) so the window keeps sliding forward automatically.
+
+A second, separate problem this addresses: `apps/worker` previously had
+no real entrypoint - the reminder consumer (`worker.ts`) was run directly
+via `npx tsx src/worker.ts` all session, with no `start`/`build` script,
+which was a hard blocker for Render deployment. `apps/worker/src/index.ts`
+is now the real entrypoint, importing `worker.ts` for its side-effect
+(starts the reminder consumer) and calling `scheduleDailyTopup()` on
+startup, so a single process runs both the reminder consumer and the
+topup scheduler/worker together.
+
+### What was traded away?
+Choosing a re-schedule-everything-daily approach over tracking explicit
+"scheduled through" state per medication: simpler, no new DB column, no
+risk of that tracking state drifting out of sync with what's actually in
+Redis. Traded away: it's less efficient at scale (every active medication
+gets a full `scheduleReminderJobs()` call every day, even though ~13 of
+14 days are guaranteed no-ops) - acceptable at portfolio scale, would
+need reconsideration at real user volume.
+
+Choosing single-process worker wiring over separate processes for the
+reminder consumer and the topup scheduler/worker: at portfolio scale (one
+Render free-tier worker dyno, not yet deployed), splitting into two
+processes means two Render services for no current benefit. Traded away:
+process isolation - a crash in topup logic could take the reminder
+consumer down with it, and vice versa. Accepted because this is a
+portfolio project, not a system with an on-call rotation.
+
+### What breaks if you change it?
+If `scheduleReminderJobs()`'s jobId format ever changes (the
+`{userMedicationId}_{scheduledDate}_{scheduledTime-with-dash}` scheme),
+the dedup this whole design relies on breaks silently - old jobs and new
+jobs would no longer collide on the same ID, and every daily top-up would
+start creating true duplicates instead of no-ops. Any change to that ID
+scheme needs to be re-verified against `getJobs(['delayed'])` counts
+before shipping, the same way the original format was verified.
+
+Splitting the single worker process into separate processes later is a
+clean extraction, not a refactor - `topup.ts` already exports its
+Queue/Worker/scheduler as standalone units with no hidden coupling to
+`worker.ts`. This is the intended scaling boundary if reminder delivery
+and top-up ever need independent deploys/restarts.
+
+### Verification
+
+**BullMQ `addBulk` jobId dedup** (unblocks the whole top-up design):
+conflicting GitHub issue claimed `addBulk` might not dedupe by `jobId`
+the way `.add()` does. Tested directly against the installed version
+(`bullmq@5.80.9`): called `addBulk` twice with the same `jobId` but
+different payloads, confirmed only 1 job existed in Redis afterward and
+its data matched the FIRST call, not the second - genuinely ignored, not
+overwritten.
+
+**BullMQ repeatable-job dedup** (`apps/worker/scripts/test-topup-dedup.ts`):
+called `scheduleDailyTopup()` twice, checked `topupQueue.getRepeatableJobs()`
+after each call. Result: 1 job both times, identical `key`
+(`3b4d34c8d0fe60c3ce393ef5a39d8483`) - confirmed BullMQ deduped by
+`{name, pattern}` and did not create a duplicate on the second call, so
+calling `scheduleDailyTopup()` on every worker process restart is safe.
+
+**Full top-up cycle, live**: seeded a real `user_medications` row (27
+jobs scheduled, hand-verified). Removed the 5 farthest-out jobs by exact
+ID (simulating a partially-drained window). Recounted: 22. Called
+`runTopup()` directly (not via the queue - the exported function itself).
+Recounted: 29, not the expected 27. Diagnosed via a full sorted job
+listing rather than assumed: real wall-clock time had passed between job
+creation and the topup run, enough to cross a day boundary, so the
+rolling 14-day window advanced by one day between the two steps. This
+simultaneously (a) refilled the 5 removed slots, now back inside the
+shifted window, and (b) added 2 new slots for the day newly entering the
+window - 22 + 5 + 2 = 29, exactly. Confirmed via exact-ID lookup (not
+just count) that the 5 originally-removed jobs specifically came back.
+No duplicates, no stray dates in the full listing.
+
+This test ended up exercising two behaviors in one run - intended
+(gap-fill) and unplanned (window-advance) - both correct, which is a
+stronger result than the originally planned test alone would have given.
+
+**Cleanup verified**: DB cascade-delete on test user confirmed (`users`
+and `user_medications` both 0 rows post-delete, checked directly, not
+assumed from the delete query's own `RETURNING` clause). All 29 orphaned
+Redis jobs explicitly removed (BullMQ jobs aren't foreign-keyed to
+Postgres, so the DB cascade does not touch them) and reconfirmed at 0.
