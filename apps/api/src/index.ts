@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import cookie from '@fastify/cookie';
 import { config } from './config';
 import { authenticatePlugin } from './plugins/authenticate';
 import { authRoutes } from './routes/auth';
@@ -15,8 +16,16 @@ const app = Fastify({
 
 const start = async () => {
   await app.register(cors, {
-    origin: config.corsOrigin
+    origin: config.corsOrigin,
+    // Required for the browser to send/receive the httpOnly refreshToken
+    // cookie on cross-origin requests (localhost:3000 -> localhost:4000
+    // locally, Vercel -> Render once deployed). Without this, the browser
+    // silently drops Set-Cookie on the response and never attaches the
+    // cookie on subsequent requests - no error, it just quietly doesn't work.
+    credentials: true
   });
+
+  await app.register(cookie);
 
   await app.register(authenticatePlugin);
 
