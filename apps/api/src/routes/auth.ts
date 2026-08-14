@@ -7,6 +7,7 @@ import {
   AuthError
 } from '../services/auth';
 import { config } from '../config';
+import { pool } from '../db';
 
 const emailPasswordNameSchema = {
   body: {
@@ -35,10 +36,6 @@ const emailPasswordSchema = {
 const REFRESH_COOKIE_NAME = 'refreshToken';
 const REFRESH_COOKIE_PATH = '/api/v1/auth';
 
-// Centralized so the maxAge (in seconds) always matches config's
-// day-based expiry - if these drift, the cookie could expire before or
-// after the DB-side token does, causing confusing "logged out but token
-// still technically valid" or vice-versa edge cases.
 function setRefreshCookie(reply: FastifyReply, refreshToken: string) {
   reply.setCookie(REFRESH_COOKIE_NAME, refreshToken, {
     httpOnly: true,
@@ -115,5 +112,23 @@ export async function authRoutes(app: FastifyInstance) {
 
     reply.clearCookie(REFRESH_COOKIE_NAME, { path: REFRESH_COOKIE_PATH });
     return reply.status(204).send();
+  });
+
+  // Used by the frontend to hydrate full user state (name, timezone) after
+  // a silent /auth/refresh on page load — the access token JWT payload
+  // only carries { userId, email }, not enough to render the UI correctly.
+  app.get('/auth/me', { onRequest: [app.authenticate] }, async (request, reply) => {
+    const userId = request.user!.userId;
+
+    const result = await pool.query(
+      'SELECT id, email, name, timezone FROM users WHERE id = $1',
+      [userId]
+    );
+
+    if (result.rows.length === 0) {
+      return reply.status(404).send({ error: 'User not found' });
+    }
+
+    return reply.send({ user: result.rows[0] });
   });
 }
