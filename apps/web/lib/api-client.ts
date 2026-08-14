@@ -6,6 +6,7 @@ import type {
   DoseLog,
   DoseLogStatus,
   AdherenceSummary,
+  MeResult,
   InteractionCheckResult,
   ApiErrorBody
 } from './types';
@@ -68,6 +69,7 @@ async function performRefresh(): Promise<string> {
 }
 
 interface RequestOptions {
+  skipAuthRedirect?: boolean;
   method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
   body?: unknown;
   authenticated?: boolean;
@@ -134,7 +136,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
         const newToken = await refreshInFlight;
         return await rawRequest<T>(path, options, newToken);
       } catch {
-        onAuthFailure?.();
+        if (!options.skipAuthRedirect) {
+          onAuthFailure?.();
+        }
         throw err;
       }
     }
@@ -156,6 +160,8 @@ export const apiClient = {
     }),
 
   logout: () => request<void>('/auth/logout', { method: 'POST' }),
+
+  getCurrentUser: () => request<MeResult>('/auth/me', { authenticated: true }),
 
   searchMedications: (search?: string) =>
     request<{ medications: Medication[] }>('/medications', { query: { search } }),
@@ -209,3 +215,16 @@ export const apiClient = {
       query: { userMedicationId, days }
     })
 };
+
+// Used only by auth-context.tsx's silent session-restore on page load.
+// A 401 here is the EXPECTED outcome for a first-time or logged-out
+// visitor - it must not trigger the global onAuthFailure redirect
+// (which would otherwise force every anonymous page load, including
+// /login and /register themselves, to bounce to /login - a real bug
+// this fixed after being caught live via HAR inspection). Genuine
+// mid-session auth failures on actual authenticated actions still use
+// apiClient.getCurrentUser() / other apiClient methods, which keep the
+// redirect behavior.
+export function fetchCurrentUserSilently() {
+  return request<MeResult>('/auth/me', { authenticated: true, skipAuthRedirect: true });
+}

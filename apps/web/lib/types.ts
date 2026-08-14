@@ -102,3 +102,7 @@ export interface InteractionCheckResult {
 export interface ApiErrorBody {
   error: string;
 }
+
+export interface MeResult {
+  user: User;
+}
