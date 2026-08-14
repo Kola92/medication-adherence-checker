@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useMemo, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { FormField } from '@/components/FormField';
+import { PasswordInput } from '@/components/PasswordInput';
+import { PageSpinner } from '@/components/PageSpinner';
+import { validateEmail, allValid } from '@/lib/validation';
 
 export default function LoginPage() {
   const { user, isLoading, login } = useAuth();
@@ -16,9 +20,16 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // If the silent session-restore in AuthProvider already found a valid
-  // session, don't show a login form to an already-authenticated user -
-  // redirect straight through.
+  const emailError = validateEmail(email);
+  // Login intentionally does NOT enforce the 8-char minimum the way
+  // register does - an existing user's password predates that rule and
+  // must still be able to log in. Only "is something typed" matters here.
+  const loginPasswordError = password ? null : 'Password is required';
+  const isFormValid = useMemo(
+    () => allValid(emailError, loginPasswordError),
+    [emailError, loginPasswordError]
+  );
+
   useEffect(() => {
     if (!isLoading && user) {
       router.replace('/dashboard');
@@ -40,15 +51,8 @@ export default function LoginPage() {
     }
   }
 
-  // Covers both AuthProvider's initial restore attempt and the moment
-  // right before the redirect effect above fires for an already-logged-in
-  // user - avoids a flash of the login form in either case.
   if (isLoading || user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" />
-      </div>
-    );
+    return <PageSpinner label="Checking your session" />;
   }
 
   return (
@@ -64,49 +68,41 @@ export default function LoginPage() {
             <p className="mt-2 text-sm text-muted">Sign in to manage your medications</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-foreground">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="you@example.com"
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <FormField
+              label="Email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={emailError}
+              placeholder="you@example.com"
+            />
 
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-foreground">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="••••••••"
-              />
-            </div>
+            <FormField
+              label="Password"
+              error={loginPasswordError}
+              renderInput={(fieldProps) => (
+                <PasswordInput
+                  {...fieldProps}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter your password"
+                />
+              )}
+            />
 
             {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+              <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              disabled={!isFormValid || isSubmitting}
+              className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? 'Signing in…' : 'Sign in'}
             </button>

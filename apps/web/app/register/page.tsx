@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, useEffect, useMemo, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/lib/auth-context';
 import { ApiError } from '@/lib/api-client';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { FormField } from '@/components/FormField';
+import { PasswordInput } from '@/components/PasswordInput';
+import { PageSpinner } from '@/components/PageSpinner';
+import { validateEmail, validatePassword, validateName, allValid } from '@/lib/validation';
 
 // Browser-native, matches the server's own validation source
 // (Intl.supportedValuesOf('timeZone') in apps/api/src/services/auth.ts) -
@@ -23,6 +27,14 @@ export default function RegisterPage() {
   const [timezone, setTimezone] = useState(DETECTED_TIMEZONE);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const nameError = validateName(name);
+  const emailError = validateEmail(email);
+  const passwordError = validatePassword(password);
+  const isFormValid = useMemo(
+    () => allValid(nameError, emailError, passwordError),
+    [nameError, emailError, passwordError]
+  );
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -46,11 +58,7 @@ export default function RegisterPage() {
   }
 
   if (isLoading || user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent" />
-      </div>
-    );
+    return <PageSpinner label="Checking your session" />;
   }
 
   return (
@@ -66,55 +74,40 @@ export default function RegisterPage() {
             <p className="mt-2 text-sm text-muted">Start tracking your medications</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="mb-1.5 block text-sm font-medium text-foreground">
-                Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                required
-                autoComplete="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="Jane Doe"
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <FormField
+              label="Name"
+              type="text"
+              autoComplete="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              error={nameError}
+              placeholder="Jane Doe"
+            />
 
-            <div>
-              <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-foreground">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="you@example.com"
-              />
-            </div>
+            <FormField
+              label="Email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              error={emailError}
+              placeholder="you@example.com"
+            />
 
-            <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-foreground">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                minLength={8}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground placeholder:text-muted focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
-                placeholder="At least 8 characters"
-              />
-            </div>
+            <FormField
+              label="Password"
+              error={passwordError}
+              renderInput={(fieldProps) => (
+                <PasswordInput
+                  {...fieldProps}
+                  autoComplete="new-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="At least 8 characters"
+                />
+              )}
+            />
 
             <div>
               <label htmlFor="timezone" className="mb-1.5 block text-sm font-medium text-foreground">
@@ -124,7 +117,7 @@ export default function RegisterPage() {
                 id="timezone"
                 value={timezone}
                 onChange={(e) => setTimezone(e.target.value)}
-                className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
+                className="min-h-11 w-full rounded-lg border border-border bg-surface px-3 py-2 text-foreground focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
               >
                 {TIMEZONES.map((tz) => (
                   <option key={tz} value={tz}>
@@ -138,15 +131,15 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+              <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
                 {error}
               </div>
             )}
 
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              disabled={!isFormValid || isSubmitting}
+              className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
             >
               {isSubmitting ? 'Creating account…' : 'Create account'}
             </button>
