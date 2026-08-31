@@ -53,7 +53,7 @@ export function ReminderTimesInput({ times, onChange }: ReminderTimesInputProps)
                 onClick={() => removeTime(index)}
                 disabled={times.length === 1}
                 aria-label={`Remove reminder time ${index + 1}`}
-                className="flex h-11 w-11 items-center justify-center rounded-lg border border-border bg-surface text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
+                className="flex h-11 w-11 items-center justify-center rounded-lg border border-control-border bg-surface text-muted transition-colors hover:bg-surface-hover hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 cursor-pointer"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14Z" />

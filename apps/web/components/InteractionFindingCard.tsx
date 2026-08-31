@@ -1,8 +1,8 @@
 import type { InteractionFinding } from '@/lib/types';
 
 const SEVERITY_STYLES: Record<string, string> = {
-  severe: 'border-red-500/30 bg-red-500/10 text-red-500',
-  moderate: 'border-amber-500/30 bg-amber-500/10 text-amber-500',
+  severe: 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-500',
+  moderate: 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-500',
   minor: 'border-border bg-surface text-foreground'
 };
 
@@ -60,7 +60,7 @@ export function InteractionFindingCard({ finding }: { finding: InteractionFindin
         <span
           className={`inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium ${
             isWarning
-              ? 'border-amber-500/30 bg-amber-500/10 text-amber-500'
+              ? 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-500'
               : 'border-border bg-surface text-foreground/70'
           }`}
         >
@@ -69,7 +69,7 @@ export function InteractionFindingCard({ finding }: { finding: InteractionFindin
       </div>
 
       <p className="text-xs text-foreground/60">
-        Automated text match against FDA label data — not clinically reviewed.
+        Automated text match against FDA label data. Not clinically reviewed.
       </p>
 
       <blockquote className="border-l-2 border-border pl-3 text-sm italic text-foreground/80">

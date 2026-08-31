@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MedTrack — Medication Adherence & Interaction Checker",
+  title: "MedTrack: Medication Adherence & Interaction Checker",
   description: "Track your medications, get reminders, and check drug interactions.",
 };
 

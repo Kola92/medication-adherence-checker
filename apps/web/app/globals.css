@@ -14,7 +14,11 @@
   --border: #e4e4e7;
   --accent: #4f46e5;
   --accent-hover: #4338ca;
-  --muted: #71717a;
+  --muted: #52525b;
+  --control-border: #52525b;
+  --accent-solid: #4f46e5;
+  --accent-solid-hover: #4338ca;
+
 }
 
 .dark {
@@ -26,6 +30,7 @@
   --accent: #818cf8;
   --accent-hover: #a5b4fc;
   --muted: #a1a1aa;
+  --control-border: #71717a;
 }
 
 @theme inline {
@@ -36,6 +41,9 @@
   --color-border: var(--border);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-solid: var(--accent-solid);
+  --color-accent-solid-hover: var(--accent-solid-hover);
+  --color-control-border: var(--control-border);
   --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

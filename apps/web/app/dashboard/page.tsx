@@ -31,7 +31,7 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+      <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-500">
         {error}
       </div>
     );
@@ -50,7 +50,7 @@ export default function DashboardPage() {
         </p>
         <Link
           href="/dashboard/add"
-          className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-accent px-4 font-medium text-white transition-colors hover:bg-accent-hover"
+          className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-accent-solid px-4 font-medium text-white transition-colors hover:bg-accent-solid-hover"
         >
           Add a medication
         </Link>
@@ -64,7 +64,7 @@ export default function DashboardPage() {
         <h1 className="text-xl font-semibold text-foreground">Your medications</h1>
         <Link
           href="/dashboard/add"
-          className="inline-flex min-h-11 items-center rounded-lg bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+          className="inline-flex min-h-11 items-center rounded-lg bg-accent-solid px-4 text-sm font-medium text-white transition-colors hover:bg-accent-solid-hover"
         >
           Add medication
         </Link>
@@ -79,7 +79,7 @@ export default function DashboardPage() {
             >
               <p className="font-medium text-foreground">{med.medicationName}</p>
               <p className="mt-1 text-sm text-muted">
-                {med.dosageAmount} {med.dosageUnit} — {med.frequency}
+                {med.dosageAmount} {med.dosageUnit} · {med.frequency}
               </p>
               <p className="mt-1 text-xs text-muted">
                 Reminders: {med.reminderTimes.join(', ')}

@@ -97,7 +97,7 @@ export default function MedicationDetailPage() {
   if (medicationError) {
     return (
       <div className="mx-auto max-w-lg">
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-500">
           {medicationError}
         </div>
         <Link href="/dashboard" className="mt-4 inline-block text-sm font-medium text-accent hover:text-accent-hover">
@@ -118,7 +118,7 @@ export default function MedicationDetailPage() {
           <h1 className="text-xl font-semibold text-foreground">{medication.medicationName}</h1>
           <p className="text-sm text-muted">{medication.medicationCategory}</p>
           <p className="mt-2 text-sm text-foreground">
-            {medication.dosageAmount} {medication.dosageUnit} — {medication.frequency}
+            {medication.dosageAmount} {medication.dosageUnit} · {medication.frequency}
           </p>
           <p className="mt-1 text-xs text-muted">
             Reminders: {medication.reminderTimes.join(', ')}
@@ -138,8 +138,8 @@ export default function MedicationDetailPage() {
                 onClick={() => setAdherenceDays(days)}
                 className={`min-h-11 rounded-lg px-3 text-sm font-medium transition-colors cursor-pointer ${
                   adherenceDays === days
-                    ? 'bg-accent text-white'
-                    : 'border border-border bg-surface text-foreground hover:bg-surface-hover'
+                    ? 'bg-accent-solid text-white'
+                    : 'border border-control-border bg-surface text-foreground hover:bg-surface-hover'
                 }`}
               >
                 {days}d
@@ -152,14 +152,14 @@ export default function MedicationDetailPage() {
           adherence.totalSlots === 0 ? (
             <div className="rounded-lg border border-border bg-surface p-4">
               <p className="text-sm text-muted">
-                No adherence data yet — this window doesn&apos;t include any full days.
+                No adherence data yet. This window doesn&apos;t include any full days.
                 Check back tomorrow, or try a longer window.
               </p>
             </div>
           ) : (
             <div className="rounded-lg border border-border bg-surface p-4">
               <p className="text-3xl font-semibold text-foreground">
-                {adherence.adherencePercentage === null ? '—' : `${adherence.adherencePercentage}%`}
+                {adherence.adherencePercentage === null ? 'N/A' : `${adherence.adherencePercentage}%`}
               </p>
               <p className="mt-1 text-sm text-muted">
                 {adherence.takenSlots} of {adherence.totalSlots} doses taken · {adherence.startDate} to {adherence.endDate}
@@ -207,7 +207,7 @@ export default function MedicationDetailPage() {
           </div>
 
           {logError && (
-            <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+            <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-500">
               {logError}
             </div>
           )}
@@ -217,7 +217,7 @@ export default function MedicationDetailPage() {
               type="button"
               onClick={() => handleLogDose('taken')}
               disabled={loggingStatus !== null}
-              className="min-h-11 flex-1 rounded-lg bg-green-600 px-3 text-sm font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              className="min-h-11 flex-1 rounded-lg bg-green-700 px-3 text-sm font-medium text-white transition-colors hover:bg-green-800 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
               {loggingStatus === 'taken' ? 'Logging…' : 'Taken'}
             </button>
@@ -225,7 +225,7 @@ export default function MedicationDetailPage() {
               type="button"
               onClick={() => handleLogDose('missed')}
               disabled={loggingStatus !== null}
-              className="min-h-11 flex-1 rounded-lg bg-red-500 px-3 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              className="min-h-11 flex-1 rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
               {loggingStatus === 'missed' ? 'Logging…' : 'Missed'}
             </button>
@@ -233,7 +233,7 @@ export default function MedicationDetailPage() {
               type="button"
               onClick={() => handleLogDose('skipped')}
               disabled={loggingStatus !== null}
-              className="min-h-11 flex-1 rounded-lg border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+              className="min-h-11 flex-1 rounded-lg border border-control-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
               {loggingStatus === 'skipped' ? 'Logging…' : 'Skipped'}
             </button>
@@ -260,9 +260,9 @@ export default function MedicationDetailPage() {
                 <span
                   className={
                     log.status === 'taken'
-                      ? 'font-medium text-green-500'
+                      ? 'font-medium text-green-700 dark:text-green-500'
                       : log.status === 'missed'
-                        ? 'font-medium text-red-500'
+                        ? 'font-medium text-red-700 dark:text-red-500'
                         : 'font-medium text-muted'
                   }
                 >

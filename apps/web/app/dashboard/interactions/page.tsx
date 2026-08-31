@@ -102,14 +102,14 @@ export default function InteractionsPage() {
 
       <div
         role="alert"
-        className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-600 dark:text-amber-400"
+        className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-500"
       >
         This tool is not a substitute for professional medical advice. Always consult a doctor
         or pharmacist before making decisions about your medications.
       </div>
 
       {loadError && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-500">
           {loadError}
         </div>
       )}
@@ -148,7 +148,7 @@ export default function InteractionsPage() {
         type="button"
         onClick={handleCheck}
         disabled={selectedIds.size < 2 || isChecking}
-        className="min-h-11 w-full rounded-lg bg-accent px-4 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+        className="min-h-11 w-full rounded-lg bg-accent-solid px-4 text-sm font-medium text-white transition-colors hover:bg-accent-solid-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
       >
         {isChecking
           ? 'Checking…'
@@ -158,7 +158,7 @@ export default function InteractionsPage() {
       </button>
 
       {checkError && (
-        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-500">
+        <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-700 dark:text-red-500">
           {checkError}
         </div>
       )}
@@ -166,7 +166,7 @@ export default function InteractionsPage() {
       {result && (
         <div className="space-y-3">
           {result.findingsCount === 0 ? (
-            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-600 dark:text-green-400">
+            <div className="rounded-lg border border-green-500/30 bg-green-500/10 p-4 text-sm text-green-700 dark:text-green-500">
               No known or possible interactions found among the {result.checkedMedicationCount}{' '}
               medications checked.
             </div>

@@ -208,11 +208,11 @@ export default function AddMedicationPage() {
           value={startedAt}
           onChange={(e) => setStartedAt(e.target.value)}
           error={null}
-          hint="Optional — defaults to today if left blank."
+          hint="Optional. Defaults to today if left blank."
         />
 
         {error && (
-          <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-500">
+          <div role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-700 dark:text-red-500">
             {error}
           </div>
         )}
@@ -220,7 +220,7 @@ export default function AddMedicationPage() {
         <button
           type="submit"
           disabled={!isFormValid || isSubmitting}
-          className="w-full rounded-lg bg-accent px-4 py-2 font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
+          className="w-full rounded-lg bg-accent-solid px-4 py-2 font-medium text-white transition-colors hover:bg-accent-solid-hover disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
         >
           {isSubmitting ? 'Adding…' : 'Add medication'}
         </button>

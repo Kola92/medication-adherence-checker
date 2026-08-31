@@ -62,7 +62,7 @@ export function FormField({ label, error, hint, renderInput, onBlur, ...inputPro
         </p>
       )}
       {showError && (
-        <p id={errorId} role="alert" className="mt-1 text-xs text-red-500">
+        <p id={errorId} role="alert" className="mt-1 text-xs text-red-700 dark:text-red-500">
           {error}
         </p>
       )}

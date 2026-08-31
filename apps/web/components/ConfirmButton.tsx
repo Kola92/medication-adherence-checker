@@ -26,7 +26,7 @@ export function ConfirmButton({ label, confirmLabel = 'Are you sure?', onConfirm
           type="button"
           onClick={() => onConfirm()}
           disabled={isLoading}
-          className="min-h-11 rounded-lg bg-red-500 px-3 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
+          className="min-h-11 rounded-lg bg-red-600 px-3 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
         >
           {isLoading ? 'Deleting…' : 'Yes, delete'}
         </button>
@@ -34,7 +34,7 @@ export function ConfirmButton({ label, confirmLabel = 'Are you sure?', onConfirm
           type="button"
           onClick={() => setConfirming(false)}
           disabled={isLoading}
-          className="min-h-11 rounded-lg border border-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover cursor-pointer"
+          className="min-h-11 rounded-lg border border-control-border bg-surface px-3 text-sm font-medium text-foreground transition-colors hover:bg-surface-hover cursor-pointer"
         >
           Cancel
         </button>
@@ -46,7 +46,7 @@ export function ConfirmButton({ label, confirmLabel = 'Are you sure?', onConfirm
     <button
       type="button"
       onClick={() => setConfirming(true)}
-      className="min-h-11 rounded-lg border border-red-500/30 bg-red-500/10 px-3 text-sm font-medium text-red-500 transition-colors hover:bg-red-500/20 cursor-pointer"
+      className="min-h-11 rounded-lg border border-red-500/30 bg-red-500/10 px-3 text-sm font-medium text-red-700 dark:text-red-500 transition-colors hover:bg-red-500/20 cursor-pointer"
     >
       {label}
     </button>
