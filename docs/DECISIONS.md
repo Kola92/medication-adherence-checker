@@ -314,3 +314,37 @@ and `user_medications` both 0 rows post-delete, checked directly, not
 assumed from the delete query's own `RETURNING` clause). All 29 orphaned
 Redis jobs explicitly removed (BullMQ jobs aren't foreign-keyed to
 Postgres, so the DB cascade does not touch them) and reconfirmed at 0.
+## Decision: Deferred - Forgot-password / account recovery flow
+**Date:** 2026-09-03
+**Component:** N/A - not yet built. Would touch `apps/api/src/routes/auth.ts`,
+a new `password_reset_tokens` table, the existing Resend integration, and
+two new frontend pages (`/forgot-password`, `/reset-password`).
+### What problem does this solve?
+Currently there is no way for a user who forgets their password to regain
+access to their account - `apps/api/src/routes/auth.ts` only exposes
+register/login/refresh/logout/me. A real user locked out today has no
+path back in short of registering a new account, which would leave their
+existing medications and history behind.
+### What was traded away?
+Development time now, in favor of finishing the higher-priority backlog
+first (responsive/device-width testing, deployment to Render + Vercel,
+end-of-project content deliverables). A full implementation is a genuine
+feature addition, not a small one: token generation with expiry and
+single-use enforcement, rate-limiting reset requests to prevent abuse, a
+new transactional email template, and two new frontend pages with their
+own validation/UX work. That scope doesn't fit into the current
+polish/testing phase without materially delaying the things actually
+blocking project completion.
+The trigger for this decision was a low-stakes signal, not a production
+need surfacing organically: a test account's password was forgotten
+during local dev testing, solved immediately by registering a fresh test
+account rather than needing real account recovery.
+### What breaks if you change it?
+Nothing breaks by deferring this - it's a missing feature, not a
+regression. If revisited later, the existing Resend integration (already
+wired up and verified working for reminder emails) means only the
+token-generation/verification logic and the two new frontend pages would
+need building, not a new email-sending integration from scratch. Should
+be flagged as a known limitation in the project's README/article rather
+than silently absent, so it reads as a deliberate scoping decision rather
+than an oversight.
