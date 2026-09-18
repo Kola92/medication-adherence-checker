@@ -348,3 +348,44 @@ need building, not a new email-sending integration from scratch. Should
 be flagged as a known limitation in the project's README/article rather
 than silently absent, so it reads as a deliberate scoping decision rather
 than an oversight.
+## Decision: Environment-scoped BullMQ queue prefixes for dev/prod Redis isolation
+**Date:** 2026-09-18
+**Component:** `apps/api/src/config.ts`, `apps/api/src/queue.ts`, `apps/worker/src/config.ts`,
+`apps/worker/src/reminderQueue.ts`, `apps/worker/src/topup.ts`, `apps/worker/src/worker.ts`
+### What problem does this solve?
+Local dev on both machines and the eventual production deployment were all
+sharing one Upstash Redis instance (Upstash's free tier allows only one
+database per account, ruling out a second physical instance without
+adding a payment method, which conflicts with the project's $0 budget
+rule). Without separation, a locally-running `npm run dev` worker and a
+deployed production worker would both consume from the exact same BullMQ
+queues - local testing could touch real reminder jobs, and vice versa.
+### What was traded away?
+Nothing functionally - BullMQ's `prefix` option exists specifically for
+this. `prefix: config.bullPrefix` was added to all 5 Queue/Worker
+constructors, deriving the prefix automatically from `NODE_ENV`
+(`'bull'` in production, `'bull-dev'` everywhere else) - no new required
+environment variable, since `NODE_ENV` is already set correctly per
+environment (Render sets `production`; local dev defaults to
+`development`). The two queues now live in fully separate Redis key
+namespaces on the same physical instance, at zero additional cost.
+### What breaks if you change it?
+If `NODE_ENV` is ever misconfigured on either environment - most
+plausibly, Render silently not setting `NODE_ENV=production` as
+expected - the prefixes would silently collapse back to the same value
+and the isolation would vanish with no error or warning. This must be
+explicitly verified once Render is set up, not assumed correct from the
+config alone.
+### Verification
+Restarted both `apps/api` and `apps/worker` locally after the change.
+`apps/worker`'s daily top-up job, on this restart, correctly did NOT
+immediately fire (unlike prior sessions, where it fired right away) -
+confirmed this is expected, not a regression: the previous behavior was
+an overdue repeatable job under the old, now-isolated `bull` prefix
+firing immediately on boot; a brand-new repeatable job under the fresh
+`bull-dev` prefix has no backlog and correctly waits for its real next
+scheduled time. Separately, added a real test medication
+(acetaminophen) through the running app: `POST /user-medications`
+returned `201` with `jobsScheduled: 14`, confirming the producer side
+(`apps/api/src/queue.ts`) successfully scheduled real jobs under the new
+prefix with no errors.

@@ -15,7 +15,7 @@ connection.on('error', (err) => {
   console.error('Unexpected error on Redis connection (topup)', err);
 });
 
-export const topupQueue = new Queue(TOPUP_QUEUE_NAME, { connection });
+export const topupQueue = new Queue(TOPUP_QUEUE_NAME, { connection, prefix: config.bullPrefix });
 
 export async function runTopup(): Promise<void> {
   const result = await pool.query(`
@@ -62,7 +62,7 @@ export const topupWorker = new Worker(
   async () => {
     await runTopup();
   },
-  { connection }
+  { connection, prefix: config.bullPrefix }
 );
 
 topupWorker.on('completed', () => {

@@ -12,5 +12,6 @@ connection.on('error', (err) => {
 });
 
 export const reminderQueue = new Queue<ReminderJobData>(REMINDER_QUEUE_NAME, {
-  connection
+  connection,
+  prefix: config.bullPrefix
 });

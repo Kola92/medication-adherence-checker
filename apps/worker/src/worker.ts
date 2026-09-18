@@ -36,7 +36,8 @@ async function processReminderJob(job: Job<ReminderJobData>): Promise<void> {
 
 const worker = new Worker<ReminderJobData>(REMINDER_QUEUE_NAME, processReminderJob, {
   connection,
-  concurrency: 1
+  concurrency: 1,
+  prefix: config.bullPrefix
 });
 
 worker.on('completed', (job) => {

@@ -23,6 +23,7 @@ export const config = {
   jwtAccessExpiresIn: '15m' as const,
   jwtRefreshExpiresInDays: 7,
   redisUrl: requireEnv('REDIS_URL'),
+  bullPrefix: isProduction ? 'bull' : 'bull-dev',
   nodeEnv,
   // Local dev: frontend (localhost:3000) and backend (localhost:4000) are
   // different ports but the same registrable site, so SameSite=Lax works
