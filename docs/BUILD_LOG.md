@@ -713,3 +713,83 @@ Tested systematically at three breakpoints (375px, 768px, 1280px) across all 6 c
 **Closed this session:** `/dashboard/interactions` built and shipped, full WCAG 2.1 AA + 1.4.11 audits complete, missing nav fixed, em dashes removed, second-machine environment fully set up and verified (with a reusable troubleshooting doc for future locked-down machines), two real setup-adjacent bugs found and fixed (root route, doubled API prefix), forgot-password formally deferred, a git-identity bug caught and corrected, and the full responsive/device-width testing pass completed clean.
 
 **Not yet started:** deployment (Render + Vercel), and the end-of-project content deliverables (compiled PDF from this file, Medium/Hashnode article prompts, LinkedIn post).
+## CHAT 5
+
+---
+
+### 1. Dev/prod environment separation - the real problem
+
+Chat 4 closed having verified something with real consequences once deployment happened: both machines' local dev pointed at the same live Neon database and the same live Upstash Redis queue, confirmed directly when a local worker restart picked up real pre-existing jobs. Once `apps/api`/`apps/worker` deployed to Render on those same credentials, a production worker and any locally-running `npm run dev` worker would pull from the exact same BullMQ queue - not a correctness bug (BullMQ's Redis locks prevent double-processing), but a real hygiene problem: local test medications landing in the database real users would eventually populate, and local testing capable of triggering real reminder emails through the deployed worker's Resend key. A Neon branch literally named `production` already existed, suggesting this separation had been anticipated but never finished.
+
+**Decision: separate dev and prod.** Reasoning logged at the time - this app was about to become a real, publicly accessible URL, and environment isolation is exactly the kind of practice expected at senior level, not just busywork. Cost was low given the existing setup: Neon branches are free, instant, copy-on-write forks reusing the same compute allowance.
+
+### 2. Neon `development` branch
+
+Created via the Neon console's "New Branch" button, parent `production`, "Branch data and schema" selected (not empty) so existing test medications/interactions/curated pairs carried over. Caught before creating: **Auto-delete defaulted to "After 1 day"** - would have silently destroyed the branch and broken both machines' local dev a day later. Changed to "Never" before confirming.
+
+`DATABASE_URL` updated in both `apps/api/.env` and `apps/worker/.env` on the Omen PC, `sslmode=require` changed to `sslmode=verify-full` matching established convention. Verified as a genuine fork, not a coincidentally-empty database: `curl` against `/api/v1/medications?search=aspirin` returned the exact same aspirin record with the exact same UUID (`65a77438-...`) as the production branch. `apps/worker` restarted clean against the same new `DATABASE_URL`, correctly picking up "5 active user_medications rows" - though this run also demonstrated the still-open half of the problem: `REDIS_URL` was still shared, so the worker processed real queued jobs against the production Redis queue on this restart (harmless here, since BullMQ's `jobId` dedup meant no actual duplicates, but a live illustration of exactly the risk being fixed).
+
+### 3. Redis isolation - Upstash's free-tier wall, and the pivot to BullMQ prefixes
+
+Attempted a second free Upstash database for the same separation. Hit a real constraint: **Upstash's free tier allows only one database per account** - a second one requires a payment method, which conflicts with the project's $0 budget rule. Rather than accept the shared-queue risk or break budget, pivoted to **BullMQ's built-in `prefix` option**, which namespaces every key a queue uses in Redis - different prefixes for prod and dev operate on fully separate key spaces within the same physical Upstash instance, at zero additional cost. Confirmed this was actually wireable before committing to it: grepping for Queue/Worker/IORedis constructors across `apps/api/src`, `apps/worker/src`, and `packages/shared/src` surfaced **5 separate constructor call sites across 4 files** - `apps/api/src/queue.ts`, `apps/worker/src/reminderQueue.ts`, `apps/worker/src/topup.ts` (a `Queue` and a `Worker`), and `apps/worker/src/worker.ts` - each independently constructing its own `IORedis` connection.
+
+**Plan:** derive `bullPrefix` automatically from `NODE_ENV` (`'bull'` in production, `'bull-dev'` everywhere else) - no new required environment variable, since `NODE_ENV` is already correctly set per environment (Render sets `production`; local dev defaults to `development`). `apps/api/src/config.ts` already computed `isProduction`; `apps/worker/src/config.ts` had no `NODE_ENV` handling at all and needed the same logic added, mirroring the API's pattern. Flagged as a real risk at plan time, not discovered later: if `NODE_ENV` is ever misconfigured on Render, the prefixes silently collapse back to shared with no error - explicitly deferred to live verification once Render was actually set up.
+
+### 4. Implementing the prefix - two real `sed` bugs, one still-unexplained one
+
+Both config files updated cleanly (`bullPrefix: isProduction ? 'bull' : 'bull-dev'` added to each exported object). The 5 constructor sites were harder. Two of five `sed` patterns (`reminderQueue.ts`, `worker.ts`) silently failed to match on the first attempt, and a `$`-anchored retry also failed. Diagnosed properly rather than guessed a third time: `cat -A` plus `file` showed no CRLF issue (plain LF throughout) - the real cause was that `reminderQueue.ts` and `worker.ts` use **2-space indentation**, not the 4-space pattern the `sed` commands assumed (matching `queue.ts`/`topup.ts`'s convention instead). Corrected patterns landed both.
+
+Then a third, genuinely stranger bug: `git status` afterward showed `apps/api/src/queue.ts` as unmodified, despite an earlier `cat -n` clearly showing the edit applied. Re-editing produced the *same* silent failure a second time. Root-caused this one too, via `od -c` on the exact byte content: **`queue.ts` also used 2-space indentation**, not 4 as assumed - a third instance of the same wrong assumption, not a new failure class. A VS Code auto-save buffer overwriting the file was floated as a possible explanation for the earlier apparent revert and checked directly (Kola confirmed a tab was open), but the file still failed to update with the *old* 4-space pattern even after the tab was closed and confirmed absent - meaning the indentation mismatch, not VS Code, was the actual and complete explanation both times. The earlier moment where `cat -n` seemingly showed a correct edit with 4-space indentation that later vanished remains genuinely unexplained and was logged as such in the commit message rather than papered over with a guessed cause.
+
+All 5 sites confirmed correct via full `cat -n` review before moving on. Both `apps/api` and `apps/worker` type-checked clean (`npx tsc --noEmit`, exit 0 on both) - though the first check attempt gave a false-positive "exit code: 0" from a `cd apps/api` that silently failed as a relative path from the wrong directory, the same class of bug flagged repeatedly across Chat 4 and still recurring here. Redone with absolute paths and `pwd` confirmation both times.
+
+### 5. Verifying the isolation live, not just compiling clean
+
+Restarted both `apps/api` and `apps/worker`. The worker's daily top-up job correctly did **not** fire immediately on this boot - a real, confirmed-expected result rather than a regression: the old immediate-firing behavior in prior sessions was an overdue repeatable job under the now-isolated `bull` prefix; a brand-new `bull-dev` job has no backlog and correctly waits for its real next scheduled time (03:00 UTC). Producer-side isolation verified directly rather than waiting for 3am: added a real test medication (acetaminophen) through the running app - `POST /user-medications` returned `201` with `jobsScheduled: 14`, confirming `apps/api`'s queue producer scheduled real jobs under the new prefix with no errors.
+
+Decision logged to `docs/DECISIONS.md` in the standing three-question format, including the explicit flag that Render's `NODE_ENV=production` setting needed live verification, not just assumption. Committed as `8b32cb7` (7 files changed, 56 insertions(+), 6 deletions(-)) - the commit message itself documents the unexplained `queue.ts` revert honestly rather than omitting it. Post-push, verified the actual pushed commit object (not just the local working copy) contained the fix: `git show 8b32cb7:apps/api/src/queue.ts` confirmed the `prefix` line was genuinely in the remote history, given how much trouble that specific file had caused.
+
+### 6. Pre-deployment code check: host binding
+
+Before touching Render's UI, checked for a classic "works locally, breaks on a cloud host" trap - a server bound to `127.0.0.1` instead of `0.0.0.0`, which local dev never surfaces. `apps/api/src/index.ts` was already correct: `app.listen({ port: config.port, host: '0.0.0.0' })`, with `config.port` correctly falling back to whatever `PORT` Render injects. No code change needed. Also confirmed a plain `/health` endpoint (no `/api/v1` prefix) already existed - directly useful for Render's health-check configuration.
+
+Fresh production JWT secrets generated (crypto.randomBytes(48).toString('hex'), run twice), kept out of the chat entirely, never reused from any local `.env`.
+
+### 7. Render: creating `medtrack-api`
+
+New Web Service, GitHub repo connected (`Kola92/medication-adherence-checker`, `main` branch). Several defaults needed correcting before creation, caught by direct review of the creation form rather than accepting them:
+
+- **Compute plan defaulted to $7/month**, not Free - selected the Free tier explicitly, given the $0 budget rule.
+- **Root Directory left blank** (repo root) - required for this npm-workspaces monorepo, since `npm install` needs to run at the repo root for `packages/shared` to correctly symlink into `apps/api`'s `node_modules`. Setting it to `apps/api` would have broken that.
+- **Build Command:** npm install && cd packages/shared && npm run build && cd ../../apps/api && npm run build
+- **Start Command:** node apps/api/dist/index.js
+- **Name:** changed from the repo's default name to `medtrack-api`, anticipating the second Render service (the worker) needing a distinct name.
+- **Region:** left as Oregon (US West) despite Neon being in `us-east-1` - the added cross-region latency is real but minor for a free-tier demo, and not worth chasing given free-tier region choices are limited anyway.
+
+Noted for docs/article, not treated as something to fix: Render's free-instance info banner confirms free services spin down after inactivity, meaning a real cold-start delay (often 30-60+ seconds) on the first request after idle - an inherent $0-hosting tradeoff, not a bug.
+
+### 8. Environment variables and the health-check path catch
+
+Six variables set: `DATABASE_URL` (the **`production`** Neon branch specifically, not `development` - fetched fresh from Neon's Connect panel with `sslmode=verify-full`, a genuinely different string from any local `.env`), `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` (the fresh production-only secrets generated a step earlier), `REDIS_URL` (the same shared Upstash instance used everywhere - correct by design, since isolation now comes from the `bull`/`bull-dev` prefix, not a separate instance), `NODE_ENV=production` (set explicitly rather than trusted as a platform default, since the entire queue-isolation scheme depends on it), `CORS_ORIGIN=http://localhost:3000` (temporary placeholder, pending the real Vercel URL). `PORT` deliberately left unset, since Render injects it automatically and the code already reads it correctly.
+
+Caught before submitting: **Health Check Path was set to `/healthz`**, but the actual registered route (confirmed from source, `apps/api/src/index.ts`) is `/health`. Left as `/healthz`, Render would have repeatedly 404'd its own health check and could have flagged a genuinely healthy service as unhealthy. Corrected to `/health` before creating the service. Auto-Deploy confirmed already set to "On Commit."
+
+### 9. First deploy failure - `NODE_ENV` colliding with its own purpose
+
+First deploy failed with `TS7016` errors: `@types/bcrypt`/`@types/jsonwebtoken` declarations not found. Root cause, diagnosed directly rather than guessed: `npm install` automatically skips `devDependencies` whenever it sees `NODE_ENV=production` in the environment - a well-known npm default - and `NODE_ENV=production` was exactly what had been deliberately set for the BullMQ prefix logic. `@types/bcrypt` and `@types/jsonwebtoken` are correctly `devDependencies` (compile-time only), so npm silently skipped installing them at build time even though they're required to compile.
+
+**Fix:** `--include=dev` added to the Build Command, forcing `npm install` to include dev dependencies regardless of `NODE_ENV` - this only affects the build step, not the app's runtime behavior. Updated Build Command: npm install --include=dev && cd packages/shared && npm run build && cd ../../apps/api && npm run build
+
+Redeploy triggered.
+
+### 10. Confirmed live - `medtrack-api` deployed and reachable
+
+The redeploy succeeded: build successful, `node apps/api/dist/index.js` started, listener bound to both `127.0.0.1:10000` and the instance's internal IP, and Render's own health-check poller began hitting `/health` and getting `200` back immediately and repeatedly. Real URL: `https://medtrack-api-wuad.onrender.com`.
+
+Verified independently, not just from the deploy log: `curl -i https://medtrack-api-wuad.onrender.com/health` returned `HTTP/1.1 200 OK` with a JSON body showing `status: ok` and a timestamp. The `404`s visible in the deploy log on bare `GET /` and `HEAD /` are expected and correct - no route registered there, not a bug.
+
+### 11. End-of-chat state
+
+**Closed this session:** dev/prod environment separation fully designed, decided, and implemented - Neon `development` branch created and verified on the Omen PC, BullMQ queue-prefix isolation built across all 5 constructor sites and verified live (both consumer-side "isolated job didn't fire early" and producer-side "14 real jobs scheduled under the new prefix" checks), committed and pushed (`8b32cb7`) with an honestly-logged unexplained revert noted rather than hidden. `apps/api` deployed to Render as `medtrack-api`, first-deploy `TS7016` failure correctly diagnosed as a `NODE_ENV`/devDependencies collision and fixed via `--include=dev`, service confirmed live and independently verified reachable at its real `*.onrender.com` URL.
+
+**Not yet done:** `DATABASE_URL` on the H: PC still points at the `production` branch and needs updating to `development`, matching the Omen PC. `apps/worker` not yet deployed. `apps/web` not yet deployed to Vercel. `CORS_ORIGIN` on `medtrack-api` still the `localhost:3000` placeholder. End-to-end production smoke test not yet run.
