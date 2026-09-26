@@ -389,3 +389,35 @@ scheduled time. Separately, added a real test medication
 returned `201` with `jobsScheduled: 14`, confirming the producer side
 (`apps/api/src/queue.ts`) successfully scheduled real jobs under the new
 prefix with no errors.
+## Decision: apps/worker deployed as a separate Render Web Service, not run in-process
+**Date:** 2026-09-25
+**Component:** apps/worker (new Render service, name TBD), external uptime pinger (provider TBD)
+### What problem does this solve?
+Render's free tier has no Background Worker service type - only Web
+Service, PostgreSQL, Redis, and static sites get free instances.
+Running apps/worker in-process inside apps/api would avoid this
+entirely, but would undermine the project's explicit goal of
+demonstrating distributed job processing and API/worker separation
+for fintech interviews - apps/worker already exists as its own app
+for that reason. Deploying it as a second free Web Service (with a
+dummy /health route satisfying Render's health-check requirement,
+since the worker itself has no real HTTP surface) keeps the
+architectural separation intact at zero cost.
+### What was traded away?
+Free Web Services spin down after inactivity, same as apps/api. A
+sleeping worker means scheduled reminder jobs don't fire until
+something wakes the service back up - unacceptable for a
+"reminder" feature whose entire point is firing on time. An external
+uptime pinger (provider TBD - UptimeRobot or cron-job.org, free tier)
+hitting both apps/api and apps/worker's /health endpoints on an
+interval is required to keep both services warm. This adds an
+external dependency the architecture didn't need before, and pinging
+on a ~5-10 minute interval still leaves an imprecise worst-case delay
+window, not true real-time delivery.
+### What breaks if you change it?
+If the pinger is removed or misconfigured, both services silently
+fall back to spin-down behavior - no error, reminders just stop
+firing until an inbound request happens to wake the service. If
+apps/worker is later merged back into apps/api to simplify ops, the
+distributed-worker story this project is meant to demonstrate is
+lost, and the two would need to be pulled apart again to get it back.
