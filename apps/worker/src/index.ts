@@ -1,7 +1,9 @@
 import './worker';
 import { scheduleDailyTopup } from './topup';
+import { startHealthServer } from './health';
 
 async function main() {
+  startHealthServer();
   await scheduleDailyTopup();
   console.log('Worker process up: reminder consumer + topup scheduler/worker running');
 }

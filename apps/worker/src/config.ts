@@ -19,5 +19,6 @@ export const config = {
   redisUrl: requireEnv('REDIS_URL'),
   resendApiKey: requireEnv('RESEND_API_KEY'),
   nodeEnv,
-  bullPrefix: isProduction ? 'bull' : 'bull-dev'
+  bullPrefix: isProduction ? 'bull' : 'bull-dev',
+  port: Number(process.env.PORT) || 4001
 };
