@@ -421,3 +421,25 @@ firing until an inbound request happens to wake the service. If
 apps/worker is later merged back into apps/api to simplify ops, the
 distributed-worker story this project is meant to demonstrate is
 lost, and the two would need to be pulled apart again to get it back.
+
+### Follow-up verification (2026-09-29)
+Deployed medtrack-worker to Render. Confirmed live, not just assumed:
+startup log shows the health server binding to Render's injected
+PORT (not the local 4001 fallback), and the worker correctly drained
+the real overdue bull-prefix backlog on boot (~12 days of jobs,
+2026-09-17 through 2026-09-29) - jobs completed, self-skipped
+correctly where their user_medications row no longer existed, or hit
+the expected Resend sandbox restriction. No unexpected errors. This
+closes the open risk flagged in the original 2026-09-18 entry: NODE_ENV
+is genuinely set to production on Render, confirmed by bullPrefix
+correctly resolving to 'bull' rather than silently collapsing to
+'bull-dev'.
+
+Also hit and fixed a real deploy-time bug: REDIS_URL's value was
+accidentally set to the literal string "REDIS_URL" instead of the
+actual connection string, likely from copying a masked field between
+Render's two services. Surfaced immediately and loudly as
+getaddrinfo ENOTFOUND REDIS_URL rather than failing silently -
+corrected by re-pasting fresh from Upstash's console, and the other
+three variables (DATABASE_URL, RESEND_API_KEY, NODE_ENV) were
+re-checked individually to rule out the same mistake elsewhere.
